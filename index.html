@@ -72,6 +72,9 @@
             </button>
         </div>
 
+        <!-- Autocomplete list ย้ายไว้ส่วนบนให้ Browser ตรวจเจอได้ง่ายขึ้น -->
+        <datalist id="sku-list"></datalist>
+
         <!-- SECTION: TRACKING MANAGEMENT FORM -->
         <div id="tracking-section" class="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs">
             <!-- Header & Control Bar -->
@@ -111,9 +114,6 @@
                 </div>
             </div>
 
-            <!-- Autocomplete list -->
-            <datalist id="sku-list"></datalist>
-
             <!-- Cards Container -->
             <div id="card-container" class="space-y-3"></div>
 
@@ -127,7 +127,6 @@
     </div>
 
     <script>
-        // 🎯 กำหนดชื่อ User และ Repository ให้ตรงกับหน้า GitHub
         const GITHUB_USER = "pet1486-sys";
         const GITHUB_REPO = "Track-Shipping-Titan";
         const RAW_REPO_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main`;
@@ -152,12 +151,11 @@
             }
         ];
 
-        // 🛠️ ฟังก์ชันกลางสำหรับล้างชื่อไฟล์ (ตัด Emoji, สัญลักษณ์พิเศษ และช่องว่าง)
         function cleanFileName(name) {
             if (!name) return "";
             return name
                 .trim()
-                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
                 .replace(/[<>"':?*|\\\/()\[\]{}!@#$%^&+=,.~`]/g, '')
                 .replace(/\s+/g, '_')
                 .replace(/^_+|_+$/g, '');
@@ -175,7 +173,6 @@
             return `./products/${sanitized}`;
         }
 
-        // 🟢 โหลดข้อมูล data.json สดใหม่เสมอ (ไม่ใช้ Cache)
         async function loadDataJSON() {
             try {
                 const cacheBuster = new Date().getTime();
@@ -190,6 +187,17 @@
             } catch (e) {
                 console.log("No existing data.json found, using default cards.");
             }
+        }
+
+        function updateDatalistOptions() {
+            const datalist = document.getElementById('sku-list');
+            if (!datalist) return;
+            datalist.innerHTML = '';
+            skuProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product;
+                datalist.appendChild(option);
+            });
         }
 
         function processWorkbook(workbook) {
@@ -214,14 +222,7 @@
             }
 
             skuProducts = [...new Set(skuProducts)];
-
-            const datalist = document.getElementById('sku-list');
-            datalist.innerHTML = '';
-            skuProducts.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product;
-                datalist.appendChild(option);
-            });
+            updateDatalistOptions();
 
             const statusText = document.getElementById('sku-status-text');
             const statusDot = document.getElementById('sku-status-dot');
@@ -396,7 +397,7 @@
                                      onerror="this.onerror=null; this.src='${imgBase}.png'; this.onerror=function(){ this.src='${localImgPath}.png'; this.onerror=function(){ this.src='${localImgPath}.jpg'; this.onerror=function(){ this.parentElement.innerHTML='📦'; }; }; };" 
                                      class="w-full h-full object-contain">
                             </div>
-                            <input type="text" list="sku-list" value="${item || ''}" 
+                            <input type="text" list="sku-list" autocomplete="off" value="${item || ''}" 
                                 onchange="updateItemName(${cIndex}, ${iIndex}, this.value)"
                                 placeholder="เลือกหรือพิมพ์ชื่อ SKU..." 
                                 class="w-full px-2.5 py-1 border border-slate-200 rounded text-xs font-medium text-slate-800 focus:outline-none focus:border-slate-400 bg-white">
@@ -423,22 +424,22 @@
                         <div>
                             <span class="block text-[10px] text-amber-700 font-semibold mb-0.5">ออกจีน</span>
                             <div class="date-picker-wrapper">
-                                <input type="text" value="${formatShortDate(card.chinaOut)}" class="w-full p-1 border border-amber-300 rounded text-center text-xs font-semibold bg-white text-amber-700">
-                                <input type="date" value="${card.chinaOut || ''}" onchange="updateCardField(${cIndex}, 'chinaOut', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                                <input type="text" readonly value="${formatShortDate(card.chinaOut)}" class="w-full p-1 border border-amber-300 rounded text-center text-xs font-semibold bg-white text-amber-700 pointer-events-none">
+                                <input type="date" value="${card.chinaOut || ''}" onchange="updateCardField(${cIndex}, 'chinaOut', this.value)" class="real-date-input">
                             </div>
                         </div>
                         <div>
                             <span class="block text-[10px] text-blue-700 font-bold mb-0.5">เข้าไทย</span>
                             <div class="date-picker-wrapper">
-                                <input type="text" value="${formatShortDate(card.thailandEst)}" class="w-full p-1 border border-blue-300 rounded text-center text-xs font-bold bg-white text-blue-700">
-                                <input type="date" value="${card.thailandEst || ''}" onchange="updateCardField(${cIndex}, 'thailandEst', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                                <input type="text" readonly value="${formatShortDate(card.thailandEst)}" class="w-full p-1 border border-blue-300 rounded text-center text-xs font-bold bg-white text-blue-700 pointer-events-none">
+                                <input type="date" value="${card.thailandEst || ''}" onchange="updateCardField(${cIndex}, 'thailandEst', this.value)" class="real-date-input">
                             </div>
                         </div>
                         <div>
                             <span class="block text-[10px] text-emerald-700 font-semibold mb-0.5">เข้าร้าน</span>
                             <div class="date-picker-wrapper">
-                                <input type="text" value="${formatShortDate(card.shopIn)}" class="w-full p-1 border border-emerald-300 rounded text-center text-xs font-semibold bg-white text-emerald-700">
-                                <input type="date" value="${card.shopIn || ''}" onchange="updateCardField(${cIndex}, 'shopIn', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                                <input type="text" readonly value="${formatShortDate(card.shopIn)}" class="w-full p-1 border border-emerald-300 rounded text-center text-xs font-semibold bg-white text-emerald-700 pointer-events-none">
+                                <input type="date" value="${card.shopIn || ''}" onchange="updateCardField(${cIndex}, 'shopIn', this.value)" class="real-date-input">
                             </div>
                         </div>
                     </div>
