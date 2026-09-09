@@ -30,27 +30,35 @@
             width: 100%;
         }
 
-        /* ซ่อนไอคอนปฏิทินของ Date Input */
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            display: none;
+        /* 📱 ปรับแต่ง Date Picker ให้รองรับ iOS สมบูรณ์แบบ ไม่เด้งอัตโนมัติ */
+        .ios-date-input {
             -webkit-appearance: none;
-        }
-
-        .date-picker-wrapper {
-            position: relative;
-            display: inline-block;
+            appearance: none;
+            background-color: #ffffff;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
             width: 100%;
+            outline: none;
+            display: block;
+            min-height: 28px;
         }
 
-        .real-date-input {
+        .ios-date-input::-webkit-calendar-picker-indicator {
+            opacity: 0;
+            width: 100%;
+            height: 100%;
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
             cursor: pointer;
-            z-index: 10;
+        }
+
+        .date-box-wrapper {
+            position: relative;
+            width: 100%;
         }
 
         /* Dynamic Status Card Colors */
@@ -79,7 +87,6 @@
         <!-- Top Header Navigation & Reload Icon -->
         <div class="flex justify-between items-center px-1">
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Stock & Tracking Management</span>
-            <!-- ปุ่มรีโหลดหน้าเว็บ ไอคอนเล็กๆ บนสุด -->
             <button onclick="window.location.reload()" title="รีโหลดหน้าเว็บ" class="p-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 shadow-2xs transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </button>
@@ -106,17 +113,14 @@
                 <!-- Action Buttons -->
                 <div class="flex flex-wrap items-center gap-1.5">
                     <div class="inline-flex rounded-lg border border-indigo-600 bg-indigo-600 p-0.5 shadow-2xs">
-                        <!-- ปุ่มเซฟลง GitHub -->
                         <button onclick="saveToGitHub()" id="btn-save-gh" title="บันทึกลง GitHub (JSON)" class="px-2.5 py-1 hover:bg-indigo-700 text-white text-xs font-semibold rounded-l-md transition flex items-center gap-1">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                         </button>
-                        <!-- ปุ่มรูปกุญแจตั้งค่า Token -->
                         <button onclick="openTokenPrompt()" title="ตั้งค่า GitHub Personal Access Token" class="px-2 py-1 hover:bg-indigo-700 text-indigo-100 border-l border-indigo-500 text-xs font-semibold rounded-r-md transition flex items-center">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
                         </button>
                     </div>
 
-                    <!-- ปุ่มเรียงตามวันเข้าไทย -->
                     <button onclick="sortTrackingByThaiDate()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-2xs">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
                         เรียงตามวันเข้าไทย
@@ -165,7 +169,7 @@
             if (!name) return "";
             return name
                 .trim()
-                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
                 .replace(/[<>"':?*|\\\/()\[\]{}!@#$%^&+=,.~`]/g, '')
                 .replace(/\s+/g, '_')
                 .replace(/^_+|_+$/g, '');
@@ -265,7 +269,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        /* 🔍 ระบบ Custom Search Auto-complete */
         function handleSearchInput(input, cIndex, iIndex) {
             const query = cleanText(input.value);
             const list = document.getElementById(`sugg_list_${cIndex}_${iIndex}`);
@@ -388,12 +391,6 @@
             }
         }
 
-        function formatShortDate(dateStr) {
-            if (!dateStr || !dateStr.includes('-')) return '';
-            const parts = dateStr.split('-');
-            return `${parts[2]}/${parts[1]}`;
-        }
-
         function getCardStatusClass(card) {
             if (card.shopIn) return 'card-status-shop';       
             if (card.thailandEst) return 'card-status-thai';  
@@ -468,23 +465,20 @@
                         </div>
                         <div>
                             <span class="block text-[10px] text-amber-700 font-semibold mb-0.5">ออกจีน</span>
-                            <div class="date-picker-wrapper">
-                                <input type="text" readonly value="${formatShortDate(card.chinaOut)}" class="w-full p-1 border border-amber-300 rounded text-center text-xs font-semibold bg-white text-amber-700 pointer-events-none">
-                                <input type="date" value="${card.chinaOut || ''}" onchange="updateCardField(${cIndex}, 'chinaOut', this.value)" class="real-date-input">
+                            <div class="date-box-wrapper">
+                                <input type="date" value="${card.chinaOut || ''}" onchange="updateCardField(${cIndex}, 'chinaOut', this.value)" class="ios-date-input border border-amber-300 text-amber-700">
                             </div>
                         </div>
                         <div>
                             <span class="block text-[10px] text-blue-700 font-bold mb-0.5">เข้าไทย</span>
-                            <div class="date-picker-wrapper">
-                                <input type="text" readonly value="${formatShortDate(card.thailandEst)}" class="w-full p-1 border border-blue-300 rounded text-center text-xs font-bold bg-white text-blue-700 pointer-events-none">
-                                <input type="date" value="${card.thailandEst || ''}" onchange="updateCardField(${cIndex}, 'thailandEst', this.value)" class="real-date-input">
+                            <div class="date-box-wrapper">
+                                <input type="date" value="${card.thailandEst || ''}" onchange="updateCardField(${cIndex}, 'thailandEst', this.value)" class="ios-date-input border border-blue-300 text-blue-700 font-bold">
                             </div>
                         </div>
                         <div>
                             <span class="block text-[10px] text-emerald-700 font-semibold mb-0.5">เข้าร้าน</span>
-                            <div class="date-picker-wrapper">
-                                <input type="text" readonly value="${formatShortDate(card.shopIn)}" class="w-full p-1 border border-emerald-300 rounded text-center text-xs font-semibold bg-white text-emerald-700 pointer-events-none">
-                                <input type="date" value="${card.shopIn || ''}" onchange="updateCardField(${cIndex}, 'shopIn', this.value)" class="real-date-input">
+                            <div class="date-box-wrapper">
+                                <input type="date" value="${card.shopIn || ''}" onchange="updateCardField(${cIndex}, 'shopIn', this.value)" class="ios-date-input border border-emerald-300 text-emerald-700">
                             </div>
                         </div>
                     </div>
