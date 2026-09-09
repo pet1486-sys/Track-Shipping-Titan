@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏷️shjipping ของเข้าจากจีน</title>
+    <title>🏷️shipping ของเข้าจากจีน</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS CDN สำหรับอ่านไฟล์ xlsx -->
@@ -127,7 +127,7 @@
     </div>
 
     <script>
-        // 🎯 กำหนดชื่อ User และ Repository ให้ตรงกับหน้า GitHub ในรูปภาพ
+        // 🎯 กำหนดชื่อ User และ Repository ให้ตรงกับหน้า GitHub
         const GITHUB_USER = "pet1486-sys";
         const GITHUB_REPO = "Track-Shipping-Titan";
         const RAW_REPO_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main`;
@@ -152,15 +152,27 @@
             }
         ];
 
-        function getSanitizedImageBaseUrl(name) {
+        // 🛠️ ฟังก์ชันกลางสำหรับล้างชื่อไฟล์ (ตัด Emoji, สัญลักษณ์พิเศษ และช่องว่าง)
+        function cleanFileName(name) {
             if (!name) return "";
-            const sanitized = name.trim().replace(/[<>"':?*|\\\/()]/g, "").replace(/\s+/g, "_");
+            return name
+                .trim()
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/[<>"':?*|\\\/()\[\]{}!@#$%^&+=,.~`]/g, '')
+                .replace(/\s+/g, '_')
+                .replace(/^_+|_+$/g, '');
+        }
+
+        function getSanitizedImageBaseUrl(name) {
+            const sanitized = cleanFileName(name);
+            if (!sanitized) return "";
             return `${RAW_REPO_URL}/image/products/${sanitized}`;
         }
 
         function getLocalImagePath(name) {
-            if (!name) return "";
-            return `./products/${name.trim()}`;
+            const sanitized = cleanFileName(name);
+            if (!sanitized) return "";
+            return `./products/${sanitized}`;
         }
 
         // 🟢 โหลดข้อมูล data.json สดใหม่เสมอ (ไม่ใช้ Cache)
