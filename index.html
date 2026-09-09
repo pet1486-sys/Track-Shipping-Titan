@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS CDN สำหรับอ่านไฟล์ xlsx -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- Flatpickr CSS & JS (Custom Datepicker สำหรับแก้ปัญหา iOS โดยเฉพาะ) -->
+    <!-- Flatpickr CSS & JS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
@@ -57,10 +57,44 @@
             background-color: #ffffff !important;
             text-align: center;
             font-size: 0.75rem;
-            padding: 0.25rem;
+            padding: 0.25rem 0.1rem;
             border-radius: 0.375rem;
             width: 100%;
             cursor: pointer;
+        }
+
+        /* 📱 ปรับแต่งขนาด Flatpickr + เพิ่มปุ่มล้างข้อมูลด้านล่างปฏิทิน */
+        .flatpickr-calendar {
+            max-width: 280px !important;
+            font-size: 0.85rem !important;
+        }
+        .flatpickr-days {
+            width: 280px !important;
+        }
+        .dayContainer {
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+        }
+        .flatpickr-day {
+            max-width: 38px !important;
+            height: 38px !important;
+            line-height: 38px !important;
+        }
+        .flatpickr-clear-btn {
+            background: #fee2e2;
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 0.75rem;
+            padding: 6px;
+            text-align: center;
+            cursor: pointer;
+            border-top: 1px solid #fecaca;
+            border-radius: 0 0 5px 5px;
+        }
+        .flatpickr-clear-btn:hover {
+            background: #fca5a5;
+            color: #ffffff;
         }
     </style>
 </head>
@@ -466,14 +500,33 @@
             });
         }
 
-        /* 🗓️ ฟังก์ชันเปิดใช้งาน Custom Date Picker สดๆ ไม่พึ่งวงล้อ iOS */
+        /* 🗓️ เพิ่มปุ่มล้างข้อมูลวันที่ใน Flatpickr */
         function initFlatpickr() {
             flatpickr(".fp-date-input", {
                 locale: "th",
                 dateFormat: "Y-m-d",
                 altInput: true,
-                altFormat: "d/m",
-                disableMobile: true, // ⚠️ สั่งปิด Native Wheel Picker บน iOS/Android ขาดแน่นอน!
+                altFormat: "d M", // 🇹🇭 แสดงผลวันและเดือนไทยสั้น เช่น 09 ก.ย.
+                disableMobile: true,
+                position: "auto center",
+                onReady: function(selectedDates, dateStr, instance) {
+                    // สร้างปุ่ม "🧹 ลบวันที่" ไว้ล่างสุดของตัวปฏิทิน
+                    const clearBtn = document.createElement("div");
+                    clearBtn.className = "flatpickr-clear-btn";
+                    clearBtn.innerHTML = "🧹 ลบวันที่ออก";
+                    clearBtn.addEventListener("click", function() {
+                        instance.clear();
+                        const el = instance.element;
+                        const cIndex = parseInt(el.getAttribute('data-cindex'));
+                        const field = el.getAttribute('data-field');
+                        if (!isNaN(cIndex) && field) {
+                            cardData[cIndex][field] = "";
+                            renderView();
+                        }
+                        instance.close();
+                    });
+                    instance.calendarContainer.appendChild(clearBtn);
+                },
                 onChange: function(selectedDates, dateStr, instance) {
                     const el = instance.element;
                     const cIndex = parseInt(el.getAttribute('data-cindex'));
