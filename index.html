@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกสถานะสินค้าและแทรคกิ้ง</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS CDN สำหรับอ่านไฟล์ xlsx -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Sarabun', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: #334155;
+            padding: 12px;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ซ่อนไอคอนปฏิทินของ Date Input */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            display: none;
+            -webkit-appearance: none;
+        }
+
+        .date-picker-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .real-date-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        /* Dynamic Status Card Colors */
+        .card-status-default { background-color: #ffffff; border-color: #e2e8f0; }
+        .card-status-china { background-color: #fffbeb; border-color: #fcd34d; }
+        .card-status-thai { background-color: #eff6ff; border-color: #93c5fd; }
+        .card-status-shop { background-color: #ecfdf5; border-color: #6ee7b7; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container space-y-4">
+
+        <!-- Top Header Navigation & Reload Icon -->
+        <div class="flex justify-between items-center px-1">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Stock & Tracking Management</span>
+            <!-- ปุ่มรีโหลดหน้าเว็บ ไอคอนเล็กๆ บนสุด -->
+            <button onclick="window.location.reload()" title="รีโหลดหน้าเว็บ" class="p-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 shadow-2xs transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
+        </div>
+
+        <!-- SECTION: TRACKING MANAGEMENT FORM -->
+        <div id="tracking-section" class="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs">
+            <!-- Header & Control Bar -->
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-800">รายการติดตามสินค้า</h1>
+                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                        <p class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                            <span id="sku-status-dot" class="w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse"></span>
+                            <span id="sku-status-text">กำลังโหลดข้อมูลคอลัมน์ Name จาก <code class="bg-slate-100 text-slate-600 px-1 py-0.5 rounded border border-slate-200 font-mono">sku xlsx/SKU.xlsx</code>...</span>
+                        </p>
+                        <label id="local-file-btn" class="hidden text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded border border-slate-300 cursor-pointer font-semibold transition">
+                            📂 เลือกไฟล์ SKU.xlsx ในคอม
+                            <input type="file" accept=".xlsx, .xls" onchange="loadLocalXLSX(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <div class="inline-flex rounded-lg border border-indigo-600 bg-indigo-600 p-0.5 shadow-2xs">
+                        <!-- ปุ่มเซฟลง GitHub -->
+                        <button onclick="saveToGitHub()" id="btn-save-gh" title="บันทึกลง GitHub (JSON)" class="px-2.5 py-1 hover:bg-indigo-700 text-white text-xs font-semibold rounded-l-md transition flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                        </button>
+                        <!-- ปุ่มรูปกุญแจสำหรับกรอก/แก้ไข Token -->
+                        <button onclick="openTokenPrompt()" title="ตั้งค่า GitHub Personal Access Token" class="px-2 py-1 hover:bg-indigo-700 text-indigo-100 border-l border-indigo-500 text-xs font-semibold rounded-r-md transition flex items-center">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- ปุ่มเรียงตามวันเข้าไทย -->
+                    <button onclick="sortTrackingByThaiDate()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-2xs">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                        เรียงตามวันเข้าไทย
+                    </button>
+                </div>
+            </div>
+
+            <!-- Autocomplete list -->
+            <datalist id="sku-list"></datalist>
+
+            <!-- Cards Container -->
+            <div id="card-container" class="space-y-3"></div>
+
+            <div class="mt-3">
+                <button onclick="addTrackingCard()" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 border border-dashed border-slate-300 py-2 rounded-lg text-xs font-semibold transition">
+                    + เพิ่มการ์ดแทรคกิ้งใหม่
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const GITHUB_USER = "pet1486-sys";
+        const GITHUB_REPO = "stock-web-titans-gain";
+        const RAW_REPO_URL = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main`;
+        const JSON_FILE_PATH = "data.json";
+
+        const syncChannel = new BroadcastChannel('stock_data_sync');
+        syncChannel.onmessage = (event) => {
+            if (event.data === 'reload_data') {
+                window.location.reload();
+            }
+        };
+
+        let skuProducts = [];
+
+        let cardData = [
+            {
+                track: '',
+                chinaOut: '',
+                thailandEst: '',
+                shopIn: '',
+                items: ['']
+            }
+        ];
+
+        function getSanitizedImageBaseUrl(name) {
+            if (!name) return "";
+            const sanitized = name.trim().replace(/[<>"':?*|\\\/()]/g, "").replace(/\s+/g, "_");
+            return `${RAW_REPO_URL}/image/products/${sanitized}`;
+        }
+
+        function getLocalImagePath(name) {
+            if (!name) return "";
+            return `./products/${name.trim()}`;
+        }
+
+        async function loadDataJSON() {
+            try {
+                const response = await fetch(`./${JSON_FILE_PATH}?t=${new Date().getTime()}`);
+                if (response.ok) {
+                    const savedData = await response.json();
+                    if (Array.isArray(savedData) && savedData.length > 0) {
+                        cardData = savedData;
+                        renderView();
+                    }
+                }
+            } catch (e) {
+                console.log("No existing data.json found, using default cards.");
+            }
+        }
+
+        function processWorkbook(workbook) {
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+            if (jsonData.length === 0) return;
+
+            const headerRow = jsonData[0] || [];
+            let nameColIndex = headerRow.findIndex(col => typeof col === 'string' && col.trim().toLowerCase() === 'name');
+            if (nameColIndex === -1) nameColIndex = 4;
+
+            skuProducts = [];
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (row && row[nameColIndex] !== undefined && row[nameColIndex] !== null) {
+                    const val = String(row[nameColIndex]).trim();
+                    if (val && val.toLowerCase() !== 'name') {
+                        skuProducts.push(val);
+                    }
+                }
+            }
+
+            skuProducts = [...new Set(skuProducts)];
+
+            const datalist = document.getElementById('sku-list');
+            datalist.innerHTML = '';
+            skuProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product;
+                datalist.appendChild(option);
+            });
+
+            const statusText = document.getElementById('sku-status-text');
+            const statusDot = document.getElementById('sku-status-dot');
+            statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 inline-block";
+            statusText.innerHTML = `ดึงข้อมูลคอลัมน์ <strong class="text-slate-800">Name</strong> สำเร็จ (<strong class="text-emerald-600 font-bold">${skuProducts.length}</strong> รายการ)`;
+        }
+
+        async function loadSKUFromXLSX() {
+            const statusText = document.getElementById('sku-status-text');
+            const statusDot = document.getElementById('sku-status-dot');
+            const localBtn = document.getElementById('local-file-btn');
+
+            try {
+                const filePath = encodeURI('./sku xlsx/SKU.xlsx');
+                const response = await fetch(filePath);
+                if (!response.ok) throw new Error('ไม่พบไฟล์');
+                
+                const data = await response.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                processWorkbook(workbook);
+            } catch (err) {
+                statusDot.className = "w-2 h-2 rounded-full bg-rose-500 inline-block";
+                statusText.innerHTML = `เปิดไฟล์โดยตรงในคอมระบบความปลอดภัยจะบล็อกไว้`;
+                localBtn.classList.remove('hidden');
+            }
+        }
+
+        function loadLocalXLSX(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                processWorkbook(workbook);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 🔑 เปิด Popup ให้ผู้ใช้ป้อน/ตั้งค่า GitHub Personal Access Token
+        function openTokenPrompt() {
+            const currentToken = localStorage.getItem('gh_pat_token') || '';
+            const newToken = prompt("กรุณากรอก GitHub Personal Access Token (PAT):", currentToken);
+            if (newToken !== null) {
+                const trimmedToken = newToken.trim();
+                if (trimmedToken) {
+                    localStorage.setItem('gh_pat_token', trimmedToken);
+                    alert("✅ บันทึก GitHub Token เรียบร้อยแล้ว");
+                } else {
+                    localStorage.removeItem('gh_pat_token');
+                    alert("ลบข้อมูล Token ออกเรียบร้อย");
+                }
+            }
+        }
+
+        async function saveToGitHub() {
+            let token = localStorage.getItem('gh_pat_token');
+            
+            if (!token) {
+                token = prompt("ยังไม่ได้ตั้งค่า GitHub Token กรุณากรอก Personal Access Token (PAT):");
+                if (token && token.trim()) {
+                    token = token.trim();
+                    localStorage.setItem('gh_pat_token', token);
+                } else {
+                    alert("ยกเลิกการบันทึก เนื่องจากไม่มี GitHub Token");
+                    return;
+                }
+            }
+
+            const confirmSave = confirm("ยืนยันการบันทึกข้อมูลแทรคกิ้งลง GitHub ใช่หรือไม่?");
+            if (!confirmSave) return;
+
+            const btnSave = document.getElementById('btn-save-gh');
+            btnSave.disabled = true;
+
+            try {
+                const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${JSON_FILE_PATH}`;
+                let sha = "";
+                
+                const getRes = await fetch(apiUrl, {
+                    headers: { 'Authorization': `token ${token}` }
+                });
+                
+                if (getRes.ok) {
+                    const fileData = await getRes.json();
+                    sha = fileData.sha;
+                }
+
+                const jsonString = JSON.stringify(cardData, null, 2);
+                const encodedContent = btoa(unescape(encodeURIComponent(jsonString)));
+
+                const putRes = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Update tracking data.json at ${new Date().toLocaleString('th-TH')}`,
+                        content: encodedContent,
+                        sha: sha ? sha : undefined
+                    })
+                });
+
+                if (putRes.ok) {
+                    syncChannel.postMessage('reload_data');
+                    alert("✅ บันทึกข้อมูลลง GitHub เรียบร้อยแล้ว! หน้าเว็บจะทำการรีโหลดข้อมูลใหม่");
+                    window.location.reload();
+                } else {
+                    const errJson = await putRes.json();
+                    alert(`❌ บันทึกไม่สำเร็จ: ${errJson.message || 'Token อาจจะไม่มีสิทธิ์ repo'}`);
+                }
+            } catch (err) {
+                alert(`❌ เกิดข้อผิดพลาดในการเชื่อมต่อกับ GitHub: ${err.message}`);
+            } finally {
+                btnSave.disabled = false;
+            }
+        }
+
+        function formatShortDate(dateStr) {
+            if (!dateStr || !dateStr.includes('-')) return '';
+            const parts = dateStr.split('-');
+            return `${parts[2]}/${parts[1]}`;
+        }
+
+        function getCardStatusClass(card) {
+            if (card.shopIn) return 'card-status-shop';       
+            if (card.thailandEst) return 'card-status-thai';  
+            if (card.chinaOut) return 'card-status-china';     
+            return 'card-status-default';                     
+        }
+
+        function sortTrackingByThaiDate() {
+            cardData.sort((a, b) => {
+                if (!a.thailandEst) return 1;
+                if (!b.thailandEst) return -1;
+                return new Date(a.thailandEst) - new Date(b.thailandEst);
+            });
+            renderView();
+        }
+
+        function renderView() {
+            renderCards();
+        }
+
+        function renderCards() {
+            const cardContainer = document.getElementById('card-container');
+            cardContainer.innerHTML = '';
+
+            cardData.forEach((card, cIndex) => {
+                const statusClass = getCardStatusClass(card);
+                const cardDiv = document.createElement('div');
+                cardDiv.id = `card-group-${cIndex}`;
+                cardDiv.className = `p-3 rounded-lg border space-y-2 shadow-2xs transition-all ${statusClass}`;
+
+                let itemsListHtml = '';
+                card.items.forEach((item, iIndex) => {
+                    const imgBase = getSanitizedImageBaseUrl(item);
+                    const localImgPath = getLocalImagePath(item);
+                    const isLastItem = iIndex === card.items.length - 1;
+
+                    itemsListHtml += `
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded shrink-0 overflow-hidden">
+                                <img src="${imgBase}.jpg" 
+                                     onerror="this.onerror=null; this.src='${imgBase}.png'; this.onerror=function(){ this.src='${localImgPath}.png'; this.onerror=function(){ this.src='${localImgPath}.jpg'; this.onerror=function(){ this.parentElement.innerHTML='📦'; }; }; };" 
+                                     class="w-full h-full object-contain">
+                            </div>
+                            <input type="text" list="sku-list" value="${item || ''}" 
+                                onchange="updateItemName(${cIndex}, ${iIndex}, this.value)"
+                                placeholder="เลือกหรือพิมพ์ชื่อ SKU..." 
+                                class="w-full px-2.5 py-1 border border-slate-200 rounded text-xs font-medium text-slate-800 focus:outline-none focus:border-slate-400 bg-white">
+                            
+                            <button onclick="deleteItem(${cIndex}, ${iIndex})" class="text-slate-300 hover:text-rose-500 px-1 text-sm shrink-0">✕</button>
+                            
+                            ${isLastItem ? `
+                                <button onclick="addItemToCard(${cIndex})" title="เพิ่มรายการสินค้า" class="w-7 h-7 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded text-sm font-bold shrink-0 transition">
+                                    +
+                                </button>
+                            ` : `<div class="w-7 shrink-0"></div>`}
+                        </div>
+                    `;
+                });
+
+                cardDiv.innerHTML = `
+                    <div class="space-y-1.5">${itemsListHtml}</div>
+                    
+                    <div class="grid grid-cols-4 gap-1 sm:gap-1.5 pt-2 border-t border-slate-200/60 text-xs">
+                        <div>
+                            <span class="block text-[10px] text-slate-500 font-medium mb-0.5">แทรคจีน</span>
+                            <input type="text" value="${card.track || ''}" onchange="updateCardField(${cIndex}, 'track', this.value)" class="w-full p-1 border border-slate-200 rounded font-mono text-center text-xs bg-white">
+                        </div>
+                        <div>
+                            <span class="block text-[10px] text-amber-700 font-semibold mb-0.5">ออกจีน</span>
+                            <div class="date-picker-wrapper">
+                                <input type="text" value="${formatShortDate(card.chinaOut)}" class="w-full p-1 border border-amber-300 rounded text-center text-xs font-semibold bg-white text-amber-700">
+                                <input type="date" value="${card.chinaOut || ''}" onchange="updateCardField(${cIndex}, 'chinaOut', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                            </div>
+                        </div>
+                        <div>
+                            <span class="block text-[10px] text-blue-700 font-bold mb-0.5">เข้าไทย</span>
+                            <div class="date-picker-wrapper">
+                                <input type="text" value="${formatShortDate(card.thailandEst)}" class="w-full p-1 border border-blue-300 rounded text-center text-xs font-bold bg-white text-blue-700">
+                                <input type="date" value="${card.thailandEst || ''}" onchange="updateCardField(${cIndex}, 'thailandEst', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                            </div>
+                        </div>
+                        <div>
+                            <span class="block text-[10px] text-emerald-700 font-semibold mb-0.5">เข้าร้าน</span>
+                            <div class="date-picker-wrapper">
+                                <input type="text" value="${formatShortDate(card.shopIn)}" class="w-full p-1 border border-emerald-300 rounded text-center text-xs font-semibold bg-white text-emerald-700">
+                                <input type="date" value="${card.shopIn || ''}" onchange="updateCardField(${cIndex}, 'shopIn', this.value)" class="real-date-input" onclick="this.showPicker && this.showPicker()">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                cardContainer.appendChild(cardDiv);
+            });
+        }
+
+        function addTrackingCard() {
+            cardData.push({ track: '', chinaOut: '', thailandEst: '', shopIn: '', items: [''] });
+            renderView();
+        }
+
+        function addItemToCard(cIndex) {
+            cardData[cIndex].items.push('');
+            renderView();
+        }
+
+        function updateCardField(cIndex, field, value) {
+            cardData[cIndex][field] = value;
+            renderView();
+        }
+
+        function updateItemName(cIndex, iIndex, value) {
+            cardData[cIndex].items[iIndex] = value;
+            renderView();
+        }
+
+        function deleteItem(cIndex, iIndex) {
+            cardData[cIndex].items.splice(iIndex, 1);
+            if (cardData[cIndex].items.length === 0) cardData.splice(cIndex, 1);
+            renderView();
+        }
+
+        loadDataJSON();
+        loadSKUFromXLSX();
+        renderView();
+    </script>
+</body>
+</html>
