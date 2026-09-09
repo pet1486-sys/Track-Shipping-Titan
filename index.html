@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🏷️shipping ของเข้าจากจีน</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,6 +14,7 @@
         * {
             box-sizing: border-box;
             font-family: 'Sarabun', system-ui, -apple-system, sans-serif;
+            touch-action: manipulation;
         }
 
         body {
@@ -57,6 +58,18 @@
         .card-status-china { background-color: #fffbeb; border-color: #fcd34d; }
         .card-status-thai { background-color: #eff6ff; border-color: #93c5fd; }
         .card-status-shop { background-color: #ecfdf5; border-color: #6ee7b7; }
+
+        /* Custom Auto-complete Dropdown */
+        .search-wrapper { position: relative; flex: 1; min-width: 0; }
+        .suggestions-list {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #cbd5e1; border-radius: 0 0 8px 8px;
+            max-height: 180px; overflow-y: auto; z-index: 999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;
+        }
+        .suggestion-item { padding: 8px 10px; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover, .suggestion-item:active { background-color: #f1f5f9; color: #0284c7; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -71,9 +84,6 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </button>
         </div>
-
-        <!-- Autocomplete list ย้ายไว้ส่วนบนให้ Browser ตรวจเจอได้ง่ายขึ้น -->
-        <datalist id="sku-list"></datalist>
 
         <!-- SECTION: TRACKING MANAGEMENT FORM -->
         <div id="tracking-section" class="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs">
@@ -155,10 +165,14 @@
             if (!name) return "";
             return name
                 .trim()
-                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
                 .replace(/[<>"':?*|\\\/()\[\]{}!@#$%^&+=,.~`]/g, '')
                 .replace(/\s+/g, '_')
                 .replace(/^_+|_+$/g, '');
+        }
+
+        function cleanText(str) {
+            return String(str || '').toLowerCase().replace(/\s+/g, '');
         }
 
         function getSanitizedImageBaseUrl(name) {
@@ -189,17 +203,6 @@
             }
         }
 
-        function updateDatalistOptions() {
-            const datalist = document.getElementById('sku-list');
-            if (!datalist) return;
-            datalist.innerHTML = '';
-            skuProducts.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product;
-                datalist.appendChild(option);
-            });
-        }
-
         function processWorkbook(workbook) {
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
@@ -222,7 +225,6 @@
             }
 
             skuProducts = [...new Set(skuProducts)];
-            updateDatalistOptions();
 
             const statusText = document.getElementById('sku-status-text');
             const statusDot = document.getElementById('sku-status-dot');
@@ -262,6 +264,44 @@
             };
             reader.readAsArrayBuffer(file);
         }
+
+        /* 🔍 ระบบ Custom Search Auto-complete */
+        function handleSearchInput(input, cIndex, iIndex) {
+            const query = cleanText(input.value);
+            const list = document.getElementById(`sugg_list_${cIndex}_${iIndex}`);
+            if (!list) return;
+
+            if (!query) {
+                list.style.display = 'none';
+                updateItemName(cIndex, iIndex, input.value);
+                return;
+            }
+
+            const matches = skuProducts.filter(p => cleanText(p).includes(query)).slice(0, 8);
+
+            if (matches.length > 0) {
+                list.innerHTML = matches.map(p => `
+                    <div class="suggestion-item" onclick="selectSuggestion(${cIndex}, ${iIndex}, '${p.replace(/'/g, "\\'")}')">
+                        ${p}
+                    </div>
+                `).join('');
+                list.style.display = 'block';
+            } else {
+                list.style.display = 'none';
+            }
+            cardData[cIndex].items[iIndex] = input.value;
+        }
+
+        function selectSuggestion(cIndex, iIndex, selectedName) {
+            cardData[cIndex].items[iIndex] = selectedName;
+            renderView();
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-wrapper')) {
+                document.querySelectorAll('.suggestions-list').forEach(el => el.style.display = 'none');
+            }
+        });
 
         function openTokenPrompt() {
             const currentToken = localStorage.getItem('gh_pat_token') || '';
@@ -397,10 +437,15 @@
                                      onerror="this.onerror=null; this.src='${imgBase}.png'; this.onerror=function(){ this.src='${localImgPath}.png'; this.onerror=function(){ this.src='${localImgPath}.jpg'; this.onerror=function(){ this.parentElement.innerHTML='📦'; }; }; };" 
                                      class="w-full h-full object-contain">
                             </div>
-                            <input type="text" list="sku-list" autocomplete="off" value="${item || ''}" 
-                                onchange="updateItemName(${cIndex}, ${iIndex}, this.value)"
-                                placeholder="เลือกหรือพิมพ์ชื่อ SKU..." 
-                                class="w-full px-2.5 py-1 border border-slate-200 rounded text-xs font-medium text-slate-800 focus:outline-none focus:border-slate-400 bg-white">
+
+                            <div class="search-wrapper">
+                                <input type="text" value="${item || ''}" 
+                                    oninput="handleSearchInput(this, ${cIndex}, ${iIndex})"
+                                    placeholder="เลือกหรือพิมพ์ชื่อ SKU..." 
+                                    autocomplete="off"
+                                    class="w-full px-2.5 py-1 border border-slate-200 rounded text-xs font-medium text-slate-800 focus:outline-none focus:border-slate-400 bg-white">
+                                <div id="sugg_list_${cIndex}_${iIndex}" class="suggestions-list"></div>
+                            </div>
                             
                             <button onclick="deleteItem(${cIndex}, ${iIndex})" class="text-slate-300 hover:text-rose-500 px-1 text-sm shrink-0">✕</button>
                             
@@ -465,7 +510,6 @@
 
         function updateItemName(cIndex, iIndex, value) {
             cardData[cIndex].items[iIndex] = value;
-            renderView();
         }
 
         function deleteItem(cIndex, iIndex) {
